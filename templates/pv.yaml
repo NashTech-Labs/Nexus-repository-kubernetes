@@ -1,0 +1,27 @@
+{{- if not .Values.statefulset.enabled }}
+{{- if .Values.persistence.pdName -}}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Values.persistence.pdName }}
+  namespace: {{ template "nexus.namespace" . }}
+  labels:
+{{ include "nexus.labels" . | indent 4 }}
+{{- if .Values.nexus.labels }}
+{{ toYaml .Values.nexus.labels | indent 4 }}
+{{- end }}
+spec:
+  capacity:
+    storage: {{ .Values.persistence.storageSize }}
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ .Values.persistence.storageClass }}
+  claimRef:
+    namespace: {{ .Release.Namespace }}
+    name: {{ template "nexus.fullname" . }}-data
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: {{ .Values.persistence.volumeId }}
+{{- end }}
+{{- end }}

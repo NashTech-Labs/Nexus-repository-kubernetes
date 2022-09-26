@@ -1,0 +1,145 @@
+statefulset:
+  enabled: false
+replicaCount: 1
+deploymentStrategy: {}
+
+nexus:
+  imageName: quay.io/travelaudience/docker-nexus
+  imageTag: 3.37.3-02
+  imagePullPolicy: IfNotPresent
+  env:
+    - name: INSTALL4J_ADD_VM_PARAMS
+      value: "-Xms1200M -Xmx1200M -XX:MaxDirectMemorySize=2G -XX:ActiveProcessorCount=4 -Dnexus.licenseFile=/etc/secret-volume/nx-license.lic" 
+    - name: NEXUS_SECURITY_RANDOMPASSWORD
+      value: "false"
+  nodeSelector: {}
+  resources: 
+    requests:
+        cpu: "500m"
+        memory: "1000Mi"
+    limits:
+        cpu: "1000m"
+        memory: "2000Mi"
+  containerSecurityContext: {}
+  dockerPort: 5003
+  nexusPort: 8081
+  additionalPorts: []
+  service:
+    svcName: sonatype-nexus-svc
+    type: ClusterIP
+  
+  securityContextEnabled: false
+  securityContext:
+    fsGroup: 200
+  podAnnotations: {}
+  livenessProbe:
+    initialDelaySeconds: 300
+    periodSeconds: 30
+    failureThreshold: 6
+    path: /
+  readinessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    failureThreshold: 6
+    path: /
+  hostAliases: []
+  context:
+  chownNexusData: true 
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  storageClass: efs-sc
+  storageSize: 8Gi
+  pdName: nexus-data-disk
+  volumeId: fs-0f46b2bb4b6c6ee76
+
+serviceAccount:
+  create: true
+  name: nexus-s3-blobstore
+  annotations: 
+     eks.amazonaws.com/role-arn: arn:aws:iam::894897474192:role/nexus-s3-blobstore
+      
+rbac:
+  create: false
+  roleRef: {}
+  annotations: {}
+
+ingress:
+  enabled: true
+  className: "traefik-int"
+  path: /
+  pathType: Prefix
+  labels: {}
+  annotations: {}
+  tls:
+    enabled: false
+    secretName: nexus-tls
+    hosts: 
+  rules:
+    - host: nexus.test.cloud
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: sonatype-nexus-svc
+              port: 
+                number: 8081
+    - host: docker-nexus.test.cloud
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: sonatype-nexus-svc
+              port: 
+                number: 5003
+
+
+affinity: {}
+
+tolerations: []
+
+config:
+  enabled: false
+  mountPath: /sonatype-nexus-conf
+  data:
+
+deployment:
+  annotations: {}
+  initContainers:
+  postStart:
+    command:    # '["/bin/sh", "-c", "ls"]'
+  additionalContainers:
+  additionalVolumes:
+  additionalVolumeMounts:
+
+secret:
+  enabled: true
+  mountPath: /etc/secret-volume
+  readOnly: true
+  data: {"nx-license.lic":"base64_converted_Data"}
+service:
+  name: sonatype-nexus-svc
+  type: ClusterIP
+  enabled: true
+  labels: {}
+  annotations: {}
+  ports:
+  - name: nexus-artifactory-service
+    targetPort: 8081
+    port: 8081
+  - name: nexus-docker-service
+    targetPort: 5003
+    port: 5003
+
+additionalConfigMaps: []
+
+#devops
+devops: 
+  nodepool: general
+  tenant: shared
+  app: repository
